@@ -1,3 +1,4 @@
+import inspect
 import os
 from typing import Callable, Text, Union
 from typing import Optional
@@ -40,7 +41,11 @@ def load_vad_model(device, vad_onset=0.500, vad_offset=0.363, use_auth_token=Non
 
     model_bytes = open(model_fp, "rb").read()
 
-    vad_model = Model.from_pretrained(model_fp, use_auth_token=use_auth_token)
+    model_params = inspect.signature(Model.from_pretrained).parameters
+    if "token" in model_params:
+        vad_model = Model.from_pretrained(model_fp, token=use_auth_token)
+    else:
+        vad_model = Model.from_pretrained(model_fp, use_auth_token=use_auth_token)
     hyperparameters = {"onset": vad_onset,
                     "offset": vad_offset,
                     "min_duration_on": 0.1,
@@ -192,11 +197,13 @@ class VoiceActivitySegmentation(VoiceActivityDetection):
             self,
             segmentation: PipelineModel = "pyannote/segmentation",
             fscore: bool = False,
+            token: Union[Text, None] = None,
             use_auth_token: Union[Text, None] = None,
             **inference_kwargs,
     ):
-
-        super().__init__(segmentation=segmentation, fscore=fscore, use_auth_token=use_auth_token, **inference_kwargs)
+        if token is None:
+            token = use_auth_token
+        super().__init__(segmentation=segmentation, fscore=fscore, token=token, **inference_kwargs)
 
     def apply(self, file: AudioFile, hook: Optional[Callable] = None) -> Annotation:
         """Apply voice activity detection

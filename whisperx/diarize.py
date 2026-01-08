@@ -1,14 +1,23 @@
+import inspect
+from typing import Optional, Union
+
 import numpy as np
 import pandas as pd
-from pyannote.audio import Pipeline
-from typing import Optional, Union
 import torch
+from pyannote.audio import Pipeline
 
 from whisperx.audio import load_audio, SAMPLE_RATE
 from whisperx.schema import TranscriptionResult, AlignedTranscriptionResult
 from whisperx.log_utils import get_logger
 
 logger = get_logger(__name__)
+
+
+def _load_diarization_pipeline(model_name: str, use_auth_token: Optional[str]):
+    pipeline_params = inspect.signature(Pipeline.from_pretrained).parameters
+    if "token" in pipeline_params:
+        return Pipeline.from_pretrained(model_name, token=use_auth_token)
+    return Pipeline.from_pretrained(model_name, use_auth_token=use_auth_token)
 
 
 class DiarizationPipeline:
@@ -20,9 +29,9 @@ class DiarizationPipeline:
     ):
         if isinstance(device, str):
             device = torch.device(device)
-        model_config = model_name or "pyannote/speaker-diarization-3.1"
+        model_config = model_name or "pyannote/speaker-diarization-community-1"
         logger.info(f"Loading diarization model: {model_config}")
-        self.model = Pipeline.from_pretrained(model_config, use_auth_token=use_auth_token).to(device)
+        self.model = _load_diarization_pipeline(model_config, use_auth_token).to(device)
 
     def __call__(
         self,
@@ -55,22 +64,43 @@ class DiarizationPipeline:
             'sample_rate': SAMPLE_RATE
         }
 
+        embeddings = None
+        diarization_result = None
         if return_embeddings:
-            diarization, embeddings = self.model(
-                audio_data,
-                num_speakers=num_speakers,
-                min_speakers=min_speakers,
-                max_speakers=max_speakers,
-                return_embeddings=True,
-            )
+            try:
+                diarization_result = self.model(
+                    audio_data,
+                    num_speakers=num_speakers,
+                    min_speakers=min_speakers,
+                    max_speakers=max_speakers,
+                    return_embeddings=True,
+                )
+            except TypeError:
+                logger.warning(
+                    "Diarization model does not support return_embeddings; returning diarization only."
+                )
+                diarization_result = self.model(
+                    audio_data,
+                    num_speakers=num_speakers,
+                    min_speakers=min_speakers,
+                    max_speakers=max_speakers,
+                )
         else:
-            diarization = self.model(
+            diarization_result = self.model(
                 audio_data,
                 num_speakers=num_speakers,
                 min_speakers=min_speakers,
                 max_speakers=max_speakers,
             )
-            embeddings = None
+
+        if isinstance(diarization_result, tuple):
+            diarization, embeddings = diarization_result
+        elif hasattr(diarization_result, "exclusive_speaker_diarization"):
+            diarization = diarization_result.exclusive_speaker_diarization
+            if return_embeddings:
+                embeddings = getattr(diarization_result, "speaker_embeddings", None)
+        else:
+            diarization = diarization_result
 
         diarize_df = pd.DataFrame(diarization.itertracks(yield_label=True), columns=['segment', 'label', 'speaker'])
         diarize_df['start'] = diarize_df['segment'].apply(lambda x: x.start)

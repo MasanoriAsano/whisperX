@@ -113,7 +113,7 @@ You may also need to install ffmpeg, rust etc. Follow openAI instructions here h
 
 ### Speaker Diarization
 
-To **enable Speaker Diarization**, include your Hugging Face access token (read) that you can generate from [Here](https://huggingface.co/settings/tokens) after the `--hf_token` argument and accept the user agreement for the following models: [Segmentation](https://huggingface.co/pyannote/segmentation-3.0) and [Speaker-Diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) (if you choose to use Speaker-Diarization 2.x, follow requirements [here](https://huggingface.co/pyannote/speaker-diarization) instead.)
+To **enable Speaker Diarization**, WhisperX defaults to `pyannote/speaker-diarization-community-1`. If you want to use gated models (e.g. `pyannote/speaker-diarization-3.1`), include your Hugging Face access token (read) after the `--hf_token` argument and accept the user agreement for the required models (see the model card for details).
 
 > **Note**<br>
 > As of Oct 11, 2023, there is a known issue regarding slow performance with pyannote/Speaker-Diarization-3.0 in whisperX. It is due to dependency conflicts between faster-whisper and pyannote-audio 3.0.0. Please see [this issue](https://github.com/m-bain/whisperX/issues/499) for more details and potential workarounds.

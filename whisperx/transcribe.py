@@ -208,7 +208,7 @@ def transcribe_task(args: dict, parser: argparse.ArgumentParser):
     if diarize:
         if hf_token is None:
             logger.warning(
-                "No --hf_token provided, needs to be saved in environment variable, otherwise will throw error loading diarization model"
+                "No --hf_token provided. This is required for gated diarization models; public models will still work."
             )
         tmp_results = results
         logger.info("Performing diarization...")
